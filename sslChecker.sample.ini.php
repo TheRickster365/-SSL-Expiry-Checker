@@ -6,7 +6,7 @@ warnDays = 30
 dateFormat = Y-m-d
 
 # Example domains - Change these to be your own domains
-# Add port number if not on standrd 443 port eg www.foo.com:8080
+# Add port number if not on standrd 443 port eg www.foo.com:8443
 #
 domains[]="www.google.com"
 domains[]="www.microsoft.com"
