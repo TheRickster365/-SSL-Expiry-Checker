@@ -1,15 +1,17 @@
 <?php
-
+/*-----------------------------------------------------------------------------*/
+function GetConfig() {
+global $config;
 
 if (file_exists(__DIR__."/sslChecker.ini.php")) {
 	$config=parse_ini_file(__DIR__."/sslChecker.ini.php");
+    return true;
 }
 else {
-	printError("Error: ".__DIR__."/sslChecker.ini.php not found");
-	exit();
+	print("Error: ".__DIR__."/sslChecker.ini.php not found");
+    return false;
 }
-
-/*-----------------------------------------------------------------------------*/
+}
 /*-----------------------------------------------------------------------------*/
 
 function debug ($val) {
@@ -57,7 +59,6 @@ print <<<END
     <h1>SSL Expiry Checker</h1>
     <h2>$now</h2>
 END;
-
 }
 /*-----------------------------------------------------------------------------*/
 
@@ -98,6 +99,7 @@ print <<<END
 <td> Links </td>
 <td> Valid From </td> 
 <td> Expiry Date </td>
+<td> Days  Valid</td>
 <td> Days Left </td>
 <td> CN </td>
 <td> Issuer </td>
@@ -123,6 +125,7 @@ $CN = $data['cn'];
 $Issuer = $data['issuer'];
 $SubjectAltName = $data['altname'];
 
+$DaysValid = $data['valid'];
 $DaysLeft = $data['expire'];
 
 
@@ -138,6 +141,7 @@ print <<<END
 <td><a href=http://$Domain target=“_blank”>http</a>  <a href=https://$Domain target=“_blank”>https</a></td>
 <td>$validFrom</td>
 <td>$validTo</td>
+<td>$DaysValid</td>
 <td>$DaysLeft</td>
 <td>$CN</td>
 <td>$Issuer</td>
@@ -179,59 +183,52 @@ return $newarr;
 }
 /*-----------------------------------------------------------------------------*/
 /*-----------------------------------------------------------------------------*/
-
-$count=0;
-$data;
-$now = time();
-
-//Get Certificate details for each Domain
-foreach ($config['domains'] as $domain) {
-
-    $pieces = explode(":", $domain);
-    $dom = $pieces[0];
-    $port = "443";
-    if (isset ($pieces[1]))
-	$port = $pieces[1];
-    
-    $certinfo = getCertInfo($dom,$port);
-    
-    $certdata[$count]['domain'] = $domain;
-    $certdata[$count]['from'] = $certinfo['validFrom_time_t'];
-    $certdata[$count]['to'] = $certinfo['validTo_time_t'];
-    $certdata[$count]['expire'] = floor(($certinfo['validTo_time_t'] - $now)/(3600*24));
-    $certdata[$count]['cn'] = $certinfo['subject']['CN'];
-    $certdata[$count]['issuer'] = $certinfo['issuer']['O'];
-    $certdata[$count]['altname'] = $certinfo['extensions']['subjectAltName'];
-
-    $count += 1;
-    
-}
-
-
-
-//Sort Array on Days Left
-$expire  = array_column_manual($certdata, 'expire');
-array_multisort ($expire,SORT_ASC,$certdata);
-
-
-//Output Table
 pagehead();
+$config;
+if (GetConfig () == true){
+    $count=0;
+    $data;
+    $now = time();
 
+    //Get Certificate details for each Domain
+    foreach ($config['domains'] as $domain) {
 
-tablehead();
+        $pieces = explode(":", $domain);
+        $dom = $pieces[0];
+        $port = "443";
+        if (isset ($pieces[1]))
+	    $port = $pieces[1];
+    
+        $certinfo = getCertInfo($dom,$port);
+    
+        $certdata[$count]['domain'] = $domain;
+        $certdata[$count]['from'] = $certinfo['validFrom_time_t'];
+        $certdata[$count]['to'] = $certinfo['validTo_time_t'];
+        $certdata[$count]['valid'] = floor(($certinfo['validTo_time_t'] - $certinfo['validFrom_time_t'])/(3600*24));
+        $certdata[$count]['expire'] = floor(($certinfo['validTo_time_t'] - $now)/(3600*24));
+        $certdata[$count]['cn'] = $certinfo['subject']['CN'];
+        $certdata[$count]['issuer'] = $certinfo['issuer']['O'];
+        $certdata[$count]['altname'] = $certinfo['extensions']['subjectAltName'];
 
-foreach ($certdata as $data) {
-    tablerow($data);
+        $count += 1;
+    
+    }
+
+    //Sort Array on Days Left
+    $expire  = array_column_manual($certdata, 'expire');
+    array_multisort ($expire,SORT_ASC,$certdata);
+
+    //Output Table
+    tablehead();
+
+    foreach ($certdata as $data) {
+        tablerow($data);
+    }
+
+    tablefoot();
+    legend();
 }
-
-tablefoot();
-
-legend();
 pagefoot();
-
 //debug($certdata);
 //phpinfo();
-
-
-
 ?>
