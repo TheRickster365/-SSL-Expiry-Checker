@@ -159,7 +159,7 @@ print <<<END
 END;
 }
 /*-----------------------------------------------------------------------------*/
-function getCertInfo($Domain,$Port) {
+function getHTTPSCertInfo($Domain,$Port) {
 
 $url = "https://".$Domain;
 $orignal_parse = parse_url($url, PHP_URL_HOST);
@@ -169,6 +169,35 @@ $cert = stream_context_get_params($read);
 $certinfo = openssl_x509_parse($cert['options']['ssl']['peer_certificate']);
 
 
+return $certinfo;
+}
+/*-----------------------------------------------------------------------------*/
+//https://stackoverflow.com/questions/13402866/how-do-i-verify-a-tls-smtp-certificate-is-valid-in-php
+/*-----------------------------------------------------------------------------*/
+function GetSMTPCertInfo ($Domain) {
+$myself   = "my_server.example.com"; // Who I am
+$cabundle = '/etc/ssl/cacert.pem';   // Where my root certificates are
+
+$smtp = fsockopen( "tcp://{$Domain}", 25, $errno, $errstr );
+fread( $smtp, 512 );
+ 
+fwrite($smtp,"HELO {$myself}\r\n");
+fread($smtp, 512);
+ 
+// Switch to TLS
+fwrite($smtp,"STARTTLS\r\n");
+fread($smtp, 512);
+stream_set_blocking($smtp, true);
+//stream_context_set_option($smtp, 'ssl', 'verify_peer', true);
+//stream_context_set_option($smtp, 'ssl', 'allow_self_signed', false);
+ stream_context_set_option($smtp, 'ssl', 'capture_peer_cert', true);
+//stream_context_set_option($smtp, 'ssl', 'cafile', $cabundle);
+$secure = stream_socket_enable_crypto($smtp, true, STREAM_CRYPTO_METHOD_TLS_CLIENT);
+stream_set_blocking($smtp, false);
+$opts = stream_context_get_options($smtp);
+
+$certinfo = openssl_x509_parse($opts['ssl']['peer_certificate']);
+ 
 return $certinfo;
 }
 /*-----------------------------------------------------------------------------*/
@@ -199,7 +228,10 @@ if (GetConfig () == true){
         if (isset ($pieces[1]))
 	    $port = $pieces[1];
     
-        $certinfo = getCertInfo($dom,$port);
+	if ($port == 25)
+            $certinfo = getSMTPCertInfo($dom);
+        else
+            $certinfo = getHTTPSCertInfo($dom,$port);
     
         $certdata[$count]['domain'] = $domain;
         $certdata[$count]['from'] = $certinfo['validFrom_time_t'];
