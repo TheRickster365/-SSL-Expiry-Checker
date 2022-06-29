@@ -27,6 +27,8 @@ $now = date("r");
 echo "<html>";
 print <<<END
 <head>
+<!-- Refresh page every day -->
+<meta http-equiv="refresh" content="86400" />
 <title>SSl Checker</title>
     <style>
         thead, .th {border: 1px solid black;font-weight: bold;}
@@ -174,11 +176,11 @@ return $certinfo;
 /*-----------------------------------------------------------------------------*/
 //https://stackoverflow.com/questions/13402866/how-do-i-verify-a-tls-smtp-certificate-is-valid-in-php
 /*-----------------------------------------------------------------------------*/
-function GetSMTPCertInfo ($Domain) {
+function GetSMTPCertInfo ($Domain,$Port) {
 $myself   = "my_server.example.com"; // Who I am
 $cabundle = '/etc/ssl/cacert.pem';   // Where my root certificates are
 
-$smtp = fsockopen( "tcp://{$Domain}", 25, $errno, $errstr );
+$smtp = fsockopen( "tcp://{$Domain}", $Port, $errno, $errstr );
 fread( $smtp, 512 );
  
 fwrite($smtp,"HELO {$myself}\r\n");
@@ -186,6 +188,28 @@ fread($smtp, 512);
  
 // Switch to TLS
 fwrite($smtp,"STARTTLS\r\n");
+fread($smtp, 512);
+stream_set_blocking($smtp, true);
+//stream_context_set_option($smtp, 'ssl', 'verify_peer', true);
+//stream_context_set_option($smtp, 'ssl', 'allow_self_signed', false);
+ stream_context_set_option($smtp, 'ssl', 'capture_peer_cert', true);
+//stream_context_set_option($smtp, 'ssl', 'cafile', $cabundle);
+$secure = stream_socket_enable_crypto($smtp, true, STREAM_CRYPTO_METHOD_TLS_CLIENT);
+stream_set_blocking($smtp, false);
+$opts = stream_context_get_options($smtp);
+
+$certinfo = openssl_x509_parse($opts['ssl']['peer_certificate']);
+ 
+return $certinfo;
+}
+/*-----------------------------------------------------------------------------*/
+function GetIMAPCertInfo ($Domain,$Port) {
+
+$smtp = fsockopen( "tcp://{$Domain}", $Port, $errno, $errstr );
+fread( $smtp, 512 );
+ 
+// Switch to TLS
+fwrite($smtp,"A1 STARTTLS\r\n");
 fread($smtp, 512);
 stream_set_blocking($smtp, true);
 //stream_context_set_option($smtp, 'ssl', 'verify_peer', true);
@@ -227,12 +251,22 @@ if (GetConfig () == true){
         $port = "443";
         if (isset ($pieces[1]))
 	    $port = $pieces[1];
-    
-	if ($port == 25)
-            $certinfo = getSMTPCertInfo($dom);
-        else
+
+		switch ($port){
+				case 25:
+				case 587:
+				$certinfo = getSMTPCertInfo($dom,$port);
+				break;
+				
+				case 143:
+				GetIMAPCertInfo ($dom,$port);
+				break;
+			
+			default:
             $certinfo = getHTTPSCertInfo($dom,$port);
-    
+			break;
+		}
+
         $certdata[$count]['domain'] = $domain;
         $certdata[$count]['from'] = $certinfo['validFrom_time_t'];
         $certdata[$count]['to'] = $certinfo['validTo_time_t'];
