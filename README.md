@@ -7,17 +7,12 @@ I added the ability to sort by the days left and to query a non standard ssl por
 
 Added support to query certificate on smtp server port 25
 
-Supported Ports (I have tested against)
-
-SMTP 25 587 (todo 465)
-
-POP3S 995
-
-IMAP  143
-
-IMAPS 993
-
-HTTPS 443 (Other eg 8744)
+Supported Ports (I have tested against)<br>
+SMTP 25 587 (todo 465)<br>
+POP3S 995<br>
+IMAP  143<br>
+IMAPS 993<br>
+HTTPS 443 (Other eg 8744)<br>
 
 
 # Installation
